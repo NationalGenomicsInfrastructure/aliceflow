@@ -90,32 +90,35 @@ R1FileNames = R1Channel.map { x -> x.get(2)}
 R2FileNames = R2Channel.map { x -> x.get(3)}
 	.subscribe { it -> file(it).mklink(idSample +".R2/" + it.fileName) }
 
-//process map {
-//	input: 
-//	file fq1 
-//	file fq2
-//
-//	output: 
-//	file "G15511_S1.gar" into result_gar
-//	file "G15511_S1.report" into result_report
-//
-//	"""
-//	gaMap --server_name=DEMO --input=${fq1},${fq2} --output=`pwd`/G15511_S1.gar --run_name=G15511_1 --report_file=`pwd`/G15511_S1.report --cmd_file=/store/params/human.map.conf
-//	"""
-//}
-//process variant_call {
-//	input:
-//	file result_gar
-//
-//	output:
-//	file "G15511_S1.vcf" into VCF
-//	file "G15511_S1.variant.json" into json
-//
-//	"""
-//	gaVariant --input=$result_gar --output=`pwd`/G15511_S1.vcf --run_name=G15511_1 --cmd_file=/store/params/human.variant.conf --output_statistics=true --statistics_file=`pwd`/G15511_S1.variant.json 
-//	"""
-//}
-//
+process map {
+	input: 
+	file R1_dir
+	file R2_dir
+
+	output: 
+	file "G15511_S1.gar" into result_gar
+	file "G15511_S1.report" into result_report
+
+	"""
+	gaMap --server_name=DEMO --input=${R1_dir}/,${R2_dir}/ --output=`pwd`/G15511_S1.gar --run_name=G15511_1 --report_file=`pwd`/G15511_S1.report --cmd_file=/store/params/human.map.conf
+	"""
+}
+
+process variant_call {
+	input:
+	file result_gar
+
+	output:
+	file "G15511_S1.vcf" into VCF
+	file "G15511_S1.variant.json" into json
+
+	"""
+	gaVariant --input=$result_gar --output=`pwd`/G15511_S1.vcf --run_name=G15511_1 --cmd_file=/store/params/human.variant.conf --output_statistics=true --statistics_file=`pwd`/G15511_S1.variant.json 
+	"""
+}
+
+// HELPER FUNCTIONS
+
 def getIdSample(aCh) {
 
     consCh = Channel.create()
