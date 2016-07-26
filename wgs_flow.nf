@@ -10,6 +10,8 @@
 //fq2=file("/store/G15511_S1/C09DFACXX111207.1.TTGAGCCT_2.fastq.gz")
 
 
+import nextflow.extension.FilesEx
+
 sampleTSVconfig = file(params.sample)
 
 if (!params.sample) {
@@ -67,15 +69,16 @@ different read group names.
 (rawFastqFiles, idSample) = getIdSample(rawFastqFiles)
 
 println "Sample ID: " + idSample
+// make a directory that contains links to all the important outputs
+resultsDir = file("${idSample}.results")
+resultsDir.mkdir()
 
 R1_dir = file("${idSample}.R1")
 R2_dir = file("${idSample}.R2")
 R1_dir.mkdir()
 R2_dir.mkdir()
 
-
 // create files containing full path names for R1 and R2 reads
-
 R1File = file("R1.readgroups")
 R2File = file("R2.readgroups")
 R1Channel = Channel.create()
@@ -85,35 +88,52 @@ Channel.from rawFastqFiles.separate(R1Channel,R2Channel) {x -> [x,x] }
 // Now we have two channels for reads, make symlinks in the corresponding directories
 // TODO: these lines are not checking for existence and are throwing an error if 
 // files are already there
-R1FileNames = R1Channel.map { x -> x.get(2)}
-	.subscribe { it -> file(it).mklink(idSample +".R1/" + it.fileName) }
-R2FileNames = R2Channel.map { x -> x.get(3)}
-	.subscribe { it -> file(it).mklink(idSample +".R2/" + it.fileName) }
+def makeLink(aChannel,readOrientation) {
+	aChannel.subscribe { it -> 
+		linkName = idSample + readOrientation + it.fileName
+		try {
+			assert file(linkName).exists()
+		} catch (AssertionError ae) {
+			file(it).mklink(linkName) 
+		}
+	}
+	return "Links in " + idSample + readOrientation
+}
+
+println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
+println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
 
 process map {
+	publishDir = resultsDir
+
 	input: 
 	file R1_dir
 	file R2_dir
 
 	output: 
-	file "G15511_S1.gar" into result_gar
-	file "G15511_S1.report" into result_report
+	file "${idSample}.gar" into result_gar
+	file "${idSample}.report" into result_report
+	file "${idSample}.qc.json" into result_metrics
 
 	"""
-	gaMap --server_name=DEMO --input=${R1_dir}/,${R2_dir}/ --output=`pwd`/G15511_S1.gar --run_name=G15511_1 --report_file=`pwd`/G15511_S1.report --cmd_file=/store/params/human.map.conf
+	gaMap --server_name=DEMO --input=${R1_dir}/,${R2_dir}/ --output=`pwd`/${idSample}.gar --run_name=${idSample} --report_file=`pwd`/${idSample}.report --cmd_file=/store/params/human.map.conf
+	gaMetrics --input=`pwd`/${idSample}.gar --metric='full detail' --format=json --output=`pwd`/${idSample}.qc.json
 	"""
 }
 
 process variant_call {
+
+	publishDir = resultsDir
+
 	input:
 	file result_gar
 
 	output:
-	file "G15511_S1.vcf" into VCF
-	file "G15511_S1.variant.json" into json
+	file "${idSample}.vcf" into VCF
+	file "${idSample}.variant.json" into vcfjson
 
 	"""
-	gaVariant --input=$result_gar --output=`pwd`/G15511_S1.vcf --run_name=G15511_1 --cmd_file=/store/params/human.variant.conf --output_statistics=true --statistics_file=`pwd`/G15511_S1.variant.json 
+	gaVariant --input=$result_gar --output=`pwd`/${idSample}.vcf --run_name=${idSample} --cmd_file=/store/params/human.variant.conf --output_statistics=true --statistics_file=`pwd`/${idSample}.variant.json 
 	"""
 }
 
@@ -137,3 +157,5 @@ def getIdSample(aCh) {
 
     return [ originalCh, idPatient]
 }
+
+
