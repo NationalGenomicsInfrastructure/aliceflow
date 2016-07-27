@@ -116,7 +116,7 @@ process map {
 	file "${idSample}.qc.json" into result_metrics
 
 	"""
-	gaMap --server_name=DEMO --input=${R1_dir}/,${R2_dir}/ --output=`pwd`/${idSample}.gar --run_name=${idSample} --report_file=`pwd`/${idSample}.report --cmd_file=/store/params/human.map.conf
+	gaMap --server_name=${params.serverName} --input=${R1_dir}/,${R2_dir}/ --output=`pwd`/${idSample}.gar --run_name=${idSample} --report_file=`pwd`/${idSample}.report --cmd_file=${params.humanMapCfg}
 	gaMetrics --input=`pwd`/${idSample}.gar --metric='full detail' --format=json --output=`pwd`/${idSample}.qc.json
 	"""
 }
@@ -133,7 +133,7 @@ process variant_call {
 	file "${idSample}.variant.json" into vcfjson
 
 	"""
-	gaVariant --input=$result_gar --output=`pwd`/${idSample}.vcf --run_name=${idSample} --cmd_file=/store/params/human.variant.conf --output_statistics=true --statistics_file=`pwd`/${idSample}.variant.json 
+	gaVariant --input=$result_gar --output=`pwd`/${idSample}.vcf --run_name=${idSample} --cmd_file=${params.humanVariantCfg} --output_statistics=true --statistics_file=`pwd`/${idSample}.variant.json 
 	"""
 }
 
