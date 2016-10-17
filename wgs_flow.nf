@@ -28,7 +28,7 @@ rawFastqFiles = Channel
   .map { line ->
     list        = line.split()
     idSample	= list[0]
-    idType      = list[2]
+    idType      = list[1]
     fastqFile1  = file(list[2])
     fastqFile2  = file(list[3])
     [ idSample, idType, fastqFile1, fastqFile2 ]
@@ -83,14 +83,16 @@ R1File = file("R1.readgroups")
 R2File = file("R2.readgroups")
 R1Channel = Channel.create()
 R2Channel = Channel.create()
+rawFastqFiles = logChannelContent("Channel for raw FASTQ: ",rawFastqFiles)
 Channel.from rawFastqFiles.separate(R1Channel,R2Channel) {x -> [x,x] }
 
 // Now we have two channels for reads, make symlinks in the corresponding directories
 // TODO: these lines are not checking for existence and are throwing an error if 
 // files are already there
 def makeLink(aChannel,readOrientation) {
+	aChannel = logChannelContent("Link channel content: ",aChannel)
 	aChannel.subscribe { it -> 
-		linkName = idSample + readOrientation + it.fileName
+		linkName = idSample + readOrientation + it.getName()
 		try {
 			assert file(linkName).exists()
 		} catch (AssertionError ae) {
@@ -99,6 +101,10 @@ def makeLink(aChannel,readOrientation) {
 	}
 	return "Links in " + idSample + readOrientation
 }
+
+R1Channel = logChannelContent("R1 is : ", R1Channel)
+R2Channel = logChannelContent("R2 is : ", R2Channel)
+
 
 println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
 println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
@@ -158,4 +164,12 @@ def getIdSample(aCh) {
     return [ originalCh, idPatient]
 }
 
-
+def logChannelContent (aMessage, aChannel) {
+  resChannel = Channel.create()
+  logChannel = Channel.create()
+  Channel
+    .from aChannel
+    .separate(resChannel,logChannel) {a -> [a, a]}
+  logChannel.subscribe {log.info aMessage + " -- $it"}
+  return resChannel
+}
