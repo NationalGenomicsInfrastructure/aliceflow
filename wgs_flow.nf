@@ -94,9 +94,9 @@ def makeLink(aChannel,readOrientation) {
 	aChannel.subscribe { it -> 
 		linkName = idSample + readOrientation + it.getName()
 		try {
-			assert file(linkName).exists()
-		} catch (AssertionError ae) {
-			file(it).mklink(linkName) 
+			it.mklink(linkName) 
+		} catch ( java.nio.file.FileAlreadyExistsException e) {
+			println "File already exists, ignoring."
 		}
 	}
 	return "Links in " + idSample + readOrientation
@@ -105,9 +105,16 @@ def makeLink(aChannel,readOrientation) {
 R1Channel = logChannelContent("R1 is : ", R1Channel)
 R2Channel = logChannelContent("R2 is : ", R2Channel)
 
-
-println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
-println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
+baz1 = Channel.create()
+baz2 = Channel.create()
+baz1 = R1Channel.map{x -> x.get(2)}
+baz2 = R2Channel.map{x -> x.get(3)}
+baz1 = logChannelContent("baz1 ",baz1)
+baz2 = logChannelContent("baz2 ",baz2)
+//println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
+//println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
+println makeLink ( baz1, ".R1/" )
+println makeLink ( baz2, ".R2/" )
 
 process map {
 	publishDir = resultsDir
