@@ -83,38 +83,26 @@ R1File = file("R1.readgroups")
 R2File = file("R2.readgroups")
 R1Channel = Channel.create()
 R2Channel = Channel.create()
-rawFastqFiles = logChannelContent("Channel for raw FASTQ: ",rawFastqFiles)
 Channel.from rawFastqFiles.separate(R1Channel,R2Channel) {x -> [x,x] }
 
 // Now we have two channels for reads, make symlinks in the corresponding directories
 // TODO: these lines are not checking for existence and are throwing an error if 
 // files are already there
 def makeLink(aChannel,readOrientation) {
-	aChannel = logChannelContent("Link channel content: ",aChannel)
+	aChannel = logChannelContent("Linking file: ",aChannel)
 	aChannel.subscribe { it -> 
 		linkName = idSample + readOrientation + it.getName()
 		try {
 			it.mklink(linkName) 
 		} catch ( java.nio.file.FileAlreadyExistsException e) {
-			println "File already exists, ignoring."
+			println "File already exists, ignoring. " + linkName
 		}
 	}
-	return "Links in " + idSample + readOrientation
+	return "Links ready in " + idSample + readOrientation
 }
 
-R1Channel = logChannelContent("R1 is : ", R1Channel)
-R2Channel = logChannelContent("R2 is : ", R2Channel)
-
-baz1 = Channel.create()
-baz2 = Channel.create()
-baz1 = R1Channel.map{x -> x.get(2)}
-baz2 = R2Channel.map{x -> x.get(3)}
-baz1 = logChannelContent("baz1 ",baz1)
-baz2 = logChannelContent("baz2 ",baz2)
-//println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
-//println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
-println makeLink ( baz1, ".R1/" )
-println makeLink ( baz2, ".R2/" )
+println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
+println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
 
 process map {
 	publishDir = resultsDir
