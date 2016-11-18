@@ -39,8 +39,59 @@ def extractFastqFiles(tsvFile) {
   return fastqFiles
 }
 
+def checkFileExistence(fileToCheck) {
+  try { assert file(fileToCheck).exists() }
+  catch (AssertionError ae) {
+    exit 1, "Missing file in TSV file: ${fileToCheck}, see --help for more information"
+  }
+}
+
+refs = [
+  "genomeFile":  params.genome,       // genome reference
+  "genomeIndex": params.genomeIndex,  // genome reference index
+  "genomeDict":  params.genomeDict,   // genome reference dictionary
+  "kgIndels":    params.kgIndels,     // 1000 Genomes SNPs
+  "kgIndex":     params.kgIndex,      // 1000 Genomes SNPs index
+  "dbsnp":       params.dbsnp,        // dbSNP
+  "dbsnpIndex":  params.dbsnpIndex,   // dbSNP index
+  "millsIndels": params.millsIndels,  // Mill's Golden set of SNPs
+  "millsIndex":  params.millsIndex,   // Mill's Golden set index
+  "cosmic41":    params.cosmic41,     // cosmic vcf file with VCF4.1 header
+  "cosmic":      params.cosmic,       // cosmic vcf file
+]
+
+
 fastqFiles = extractFastqFiles(file(params.sample))
-//process BWAMap { }
+
+process MapReads { 
+    tag { params.projectID}
+    time { params.runTime * task.attempt }
+
+    input:
+    set libPrep, flowCell, lane, file(fq1), file(fq2) from fastqFiles
+    file refs["genomeFile"]
+
+    output:
+    set file("${libPrep}_${flowCell}_${lane}.bam") into bams
+
+//    when: 'preprocessing' in workflowSteps
+
+    script:
+    readGroupString="\"@RG\\tID:${lane}\\tSM:${params.projectID}_${params.sampleID}\\tLB:${flowCell}_${libPrep}\\tPL:illumina\""
+    """
+    #!/bin/bash
+
+    bwa mem -R ${readGroupString} -B 3 -t ${task.cpus} -M ${refs["genomeFile"]} ${fq1} ${fq2} | \
+    samtools view -bS -t ${refs["genomeIndex"]} - | \
+    samtools sort - > ${libPrep}_${flowCell}_${lane}.bam
+    for ps in \${PIPESTATUS[@]}; do 
+	if [ \$ps -neq 0 ];then 
+	    echo "Read mapping pipe failed"; 
+	    exit 1;
+	fi;  
+    done
+    """
+}
 //process MergeBAMs { }
 //process MarkDuplicates { }
 //process CreateIntervals { }
