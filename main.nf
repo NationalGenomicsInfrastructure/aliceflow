@@ -1,3 +1,7 @@
+/*
+vim: syntax=groovy
+-*- mode: groovy;-*-
+*/
 // Workflow to run GATK best practices and HaplotypeCaller
 // before running you have to get the reference and and other tools
 // installed on your system
@@ -57,9 +61,8 @@ refs = [
   "millsIndels": params.millsIndels,  // Mill's Golden set of SNPs
   "millsIndex":  params.millsIndex,   // Mill's Golden set index
   "cosmic41":    params.cosmic41,     // cosmic vcf file with VCF4.1 header
-  "cosmic":      params.cosmic,       // cosmic vcf file
+  "cosmic":      params.cosmic       // cosmic vcf file
 ]
-
 
 fastqFiles = extractFastqFiles(file(params.sample))
 
@@ -72,27 +75,45 @@ process MapReads {
     file refs["genomeFile"]
 
     output:
-    set file("${libPrep}_${flowCell}_${lane}.bam") into bams
-
-//    when: 'preprocessing' in workflowSteps
+    set libPrep, flowCell, lane, file("${libPrep}_${flowCell}_${lane}.bam") into bams
 
     script:
     readGroupString="\"@RG\\tID:${lane}\\tSM:${params.projectID}_${params.sampleID}\\tLB:${flowCell}_${libPrep}\\tPL:illumina\""
     """
     #!/bin/bash
-
+    set -eo pipefail
     bwa mem -R ${readGroupString} -B 3 -t ${task.cpus} -M ${refs["genomeFile"]} ${fq1} ${fq2} | \
     samtools view -bS -t ${refs["genomeIndex"]} - | \
     samtools sort - > ${libPrep}_${flowCell}_${lane}.bam
-    for ps in \${PIPESTATUS[@]}; do 
-	if [ \$ps -neq 0 ];then 
-	    echo "Read mapping pipe failed"; 
-	    exit 1;
-	fi;  
-    done
     """
 }
-//process MergeBAMs { }
+
+process MergeBAMs { 
+  tag { params.projectID }
+
+  //queue 'core'
+  time { params.runTime * task.attempt }
+
+  input:
+  set libPrep, flowCell, lane, file(bam) from bams
+
+  output:
+  set libPrep, flowCell, lane, file("${params.projectID}_${params.sampleID}.bam") into mergedBam
+
+  script:
+  """
+  #!/bin/bash
+  java -Xmx6g -jar ${params.picardHome}/MergeSamFiles.jar \
+  ASSUME_SORTED=true \
+  INPUT=${bam} \
+  OUTPUT=${params.projectID}_${params.sampleID}.bam
+
+
+
+#  samtools merge ${params.projectID}_${params.sampleID}.bam ${bam}
+  """
+}
+
 //process MarkDuplicates { }
 //process CreateIntervals { }
 //process IndelRealign { }
