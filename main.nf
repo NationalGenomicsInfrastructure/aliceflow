@@ -107,7 +107,31 @@ process MergeBAMs {
     """
 }
 
-//process MarkDuplicates { }
+process MarkDuplicates { 
+    tag {params.projectID}
+
+    publishDir "md"
+
+    input:
+    file(merged) from mergedBam
+
+    output:
+    file "${params.projectID}_${params.sampleID}.md.bam" into mdBam
+    file "${params.projectID}_${params.sampleID}.bam.metrics" into mdMetrics
+
+    script:
+    """
+    java -Xmx${task.memory.toGiga()}g -jar ${params.picardHome}/MarkDuplicates.jar \
+    INPUT=${merged} \
+    METRICS_FILE=${merged}.metrics \
+    TMP_DIR=. \
+    ASSUME_SORTED=true \
+    VALIDATION_STRINGENCY=LENIENT \
+    CREATE_INDEX=TRUE \
+    OUTPUT=${params.projectID}_${params.sampleID}.md.bam
+    """
+}
+
 //process CreateIntervals { }
 //process IndelRealign { }
 //process CreateRecalibrationTable { }
