@@ -11,12 +11,12 @@ import nextflow.extension.FilesEx
 sampleTSVconfig = file(params.sample)
 
 if (!params.sample) {
-	text = Channel.from(
-	"GATK-BP WGS WORKFLOW - Missing the sample TSV config file: ",
-	"    Usage",
-	"       nextflow run main.nf -c <file.config> --sample <sample.tsv>")
-  	text.subscribe { println "$it" }
-  	exit 1
+    text = Channel.from(
+    "GATK-BP WGS WORKFLOW - Missing the sample TSV config file: ",
+    "    Usage",
+    "       nextflow run main.nf -c <file.config> --sample <sample.tsv>")
+    text.subscribe { println "$it" }
+    exit 1
 }
 
 def extractFastqFiles(tsvFile) {
@@ -69,13 +69,14 @@ fastqFiles = extractFastqFiles(file(params.sample))
 process MapReads { 
     tag { params.projectID}
     time { params.runTime * task.attempt }
+    publishDir "bwa_mem"
 
     input:
     set libPrep, flowCell, lane, file(fq1), file(fq2) from fastqFiles
     file refs["genomeFile"]
 
     output:
-    set libPrep, flowCell, lane, file("${libPrep}_${flowCell}_${lane}.bam") into bams
+    file("${libPrep}_${flowCell}_${lane}.bam") into bams
 
     script:
     readGroupString="\"@RG\\tID:${lane}\\tSM:${params.projectID}_${params.sampleID}\\tLB:${flowCell}_${libPrep}\\tPL:illumina\""
@@ -89,29 +90,21 @@ process MapReads {
 }
 
 process MergeBAMs { 
-  tag { params.projectID }
+    tag { params.projectID }
+    publishDir "merged"
 
-  //queue 'core'
-  time { params.runTime * task.attempt }
+    time { params.runTime * task.attempt }
 
-  input:
-  set libPrep, flowCell, lane, file(bam) from bams
+    input:
+    file '*.bam' from bams.toList()
 
-  output:
-  set libPrep, flowCell, lane, file("${params.projectID}_${params.sampleID}.bam") into mergedBam
+    output:
+    file "${params.projectID}_${params.sampleID}.bam" into mergedBam
 
-  script:
-  """
-  #!/bin/bash
-  java -Xmx6g -jar ${params.picardHome}/MergeSamFiles.jar \
-  ASSUME_SORTED=true \
-  INPUT=${bam} \
-  OUTPUT=${params.projectID}_${params.sampleID}.bam
-
-
-
-#  samtools merge ${params.projectID}_${params.sampleID}.bam ${bam}
-  """
+    script:
+    """
+    samtools merge ${params.projectID}_${params.sampleID}.bam *.bam 
+    """
 }
 
 //process MarkDuplicates { }
