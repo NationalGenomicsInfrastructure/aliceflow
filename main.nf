@@ -50,7 +50,7 @@ def checkFileExistence(fileToCheck) {
   }
 }
 
-refs = [
+referenceMap = [
   "genomeFile":  params.genome,       // genome reference
   "genomeIndex": params.genomeIndex,  // genome reference index
   "genomeDict":  params.genomeDict,   // genome reference dictionary
@@ -73,7 +73,7 @@ process MapReads {
 
     input:
     set libPrep, flowCell, lane, file(fq1), file(fq2) from fastqFiles
-    file refs["genomeFile"]
+    file referenceMap["genomeFile"]
 
     output:
     file("${libPrep}_${flowCell}_${lane}.bam") into bams
@@ -83,8 +83,8 @@ process MapReads {
     """
     #!/bin/bash
     set -eo pipefail
-    bwa mem -R ${readGroupString} -B 3 -t ${task.cpus} -M ${refs["genomeFile"]} ${fq1} ${fq2} | \
-    samtools view -bS -t ${refs["genomeIndex"]} - | \
+    bwa mem -R ${readGroupString} -B 3 -t ${task.cpus} -M ${referenceMap["genomeFile"]} ${fq1} ${fq2} | \
+    samtools view -bS -t ${referenceMap["genomeIndex"]} - | \
     samtools sort - > ${libPrep}_${flowCell}_${lane}.bam
     """
 }
@@ -109,7 +109,6 @@ process MergeBAMs {
 
 process MarkDuplicates { 
     tag {params.projectID}
-
     publishDir "md"
 
     input:
@@ -132,7 +131,38 @@ process MarkDuplicates {
     """
 }
 
-//process CreateIntervals { }
+process CreateIntervals { 
+    tag {params.projectID}
+    publishDir "CreateIntervals"
+
+    input:
+    file(md) from mdBam
+    file gf from file(referenceMap["genomeFile"])
+    file gi from file(referenceMap["genomeIndex"])
+    file gd from file(referenceMap["genomeDict"])
+    file ki from file(referenceMap["kgIndels"])
+    file kix from file(referenceMap["kgIndex"])
+    file mi from file(referenceMap["millsIndels"])
+    file mix from file(referenceMap["millsIndex"])
+
+    output:
+    file "${params.projectID}_${params.sampleID}.intervals" into intervals
+
+    """
+    java -Xmx${task.memory.toGiga()}g -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
+    -T RealignerTargetCreator \
+    -I $md \
+    -R $gf \
+    -known $ki \
+    -known $mi \
+    -nt ${task.cpus} \
+    -XL hs37d5 \
+    -XL NC_007605 \
+    -o ${params.projectID}_${params.sampleID}.intervals
+    """
+
+}
+
 //process IndelRealign { }
 //process CreateRecalibrationTable { }
 //process RecalibrateBam { }
