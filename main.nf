@@ -6,6 +6,10 @@ vim: syntax=groovy
 // before running you have to get the reference and and other tools
 // installed on your system
 
+// Extra notes:
+// - The tiny dataset is the same as it is in used in the SciLifeLab/CAW project, its coordinates are -L "1:131941-141339"
+//
+
 import nextflow.extension.FilesEx
 
 sampleTSVconfig = file(params.sample)
@@ -116,6 +120,7 @@ process MarkDuplicates {
 
     output:
     file "${params.projectID}_${params.sampleID}.md.bam" into mdBam
+    file "${params.projectID}_${params.sampleID}.md.bai" into mdBamIdx
     file "${params.projectID}_${params.sampleID}.bam.metrics" into mdMetrics
 
     script:
@@ -136,7 +141,8 @@ process CreateIntervals {
     publishDir "CreateIntervals"
 
     input:
-    file(md) from mdBam
+    file md from mdBam
+    file mdIdx from mdBamIdx
     file gf from file(referenceMap["genomeFile"])
     file gi from file(referenceMap["genomeIndex"])
     file gd from file(referenceMap["genomeDict"])
@@ -147,7 +153,9 @@ process CreateIntervals {
 
     output:
     file "${params.projectID}_${params.sampleID}.intervals" into intervals
-
+    // We are actually duplicating the mdBam/Idx channels, but it have to be duplicated anyway
+    file "${params.projectID}_${params.sampleID}.md.bam" into mdCIBam
+    file "${params.projectID}_${params.sampleID}.md.bai" into mdCIBamIdx
     """
     java -Xmx${task.memory.toGiga()}g -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
     -T RealignerTargetCreator \
@@ -156,14 +164,49 @@ process CreateIntervals {
     -known $ki \
     -known $mi \
     -nt ${task.cpus} \
+    -L "1:131941-141339" \
     -XL hs37d5 \
     -XL NC_007605 \
     -o ${params.projectID}_${params.sampleID}.intervals
     """
-
 }
 
-//process IndelRealign { }
+process IndelRealign {
+    tag {params.projectID}
+    publishDir "IndelRealigner"
+
+    input:
+    file cibam from mdCIBam
+    file cibai from mdCIBamIdx
+    file intervals from intervals
+    file gf from file(referenceMap["genomeFile"])
+    file gi from file(referenceMap["genomeIndex"])
+    file gd from file(referenceMap["genomeDict"])
+    file ki from file(referenceMap["kgIndels"])
+    file kix from file(referenceMap["kgIndex"])
+    file mi from file(referenceMap["millsIndels"])
+    file mix from file(referenceMap["millsIndex"])
+
+    output:
+    file("*.md.real.bam") into realignedBam
+    file("*.md.real.bai") into realignedBai
+
+    script:
+    """
+    java -Xmx${task.memory.toGiga()}g -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
+    -T IndelRealigner \
+    -I $cibam \
+    -R $gf \
+    -targetIntervals $intervals \
+    -known $ki \
+    -known $mi \
+    -XL hs37d5 \
+    -XL NC_007605 \
+    -L "1:131941-141339" \
+    -o ${params.projectID}_${params.sampleID}.md.real.bam
+    """     
+}
+
 //process CreateRecalibrationTable { }
 //process RecalibrateBam { }
 //process HaplotypeCaller { }
