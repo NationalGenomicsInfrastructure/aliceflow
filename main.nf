@@ -207,8 +207,67 @@ process IndelRealign {
     """     
 }
 
-//process CreateRecalibrationTable { }
-//process RecalibrateBam { }
+process CreateRecalibrationTable { 
+    tag {params.projectID}
+    publishDir "CreateRecalibrationTable"
+
+    input:
+    file raBam from realignedBam
+    file raBai from realignedBai
+    file referenceMap["genomeFile"]
+    file referenceMap["dbsnp"]
+    file referenceMap["kgIndels"]
+    file referenceMap["millsIndels"]
+
+    output:
+    file "${params.projectID}_${params.sampleID}.recal.table" into recalibrationTable
+    file "${params.projectID}_${params.sampleID}.md.real.bam" into crRaBam
+    file "${params.projectID}_${params.sampleID}.md.real.bai" into crRaBai
+    //file "*.md.real.bam" into rcRealignedBam
+    //file "*.md.real.bai" into rcRealignedBai
+
+    script:
+    """
+    java -Xmx${task.memory.toGiga()}g -Djava.io.tmpdir="/tmp" \
+    -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
+    -T BaseRecalibrator \
+    -R ${referenceMap["genomeFile"]} \
+    -I $raBam \
+    -knownSites ${referenceMap["dbsnp"]} \
+    -knownSites ${referenceMap["kgIndels"]} \
+    -knownSites ${referenceMap["millsIndels"]} \
+    -nct ${task.cpus} \
+    -XL hs37d5 \
+    -XL NC_007605 \
+    -l INFO \
+    -L "1:131941-141339" \
+    -o ${params.projectID}_${params.sampleID}.recal.table
+    """
+}
+
+//process RecalibrateBam { 
+//    input:
+//    file realBambam), file(bai), recalibrationReport from recalibrationTable
+//    file referenceMap["genomeFile"]
+//
+//  output:
+//    set idPatient, gender, status, idSample, file("${idSample}.recal.bam"), file("${idSample}.recal.bai") into recalibratedBam
+//    set idPatient, gender, status, idSample, val("${idSample}.recal.bam"), val("${idSample}.recal.bai") into recalibratedBamTSV
+//
+//  script:
+//  """
+//  java -Xmx${task.memory.toGiga()}g \
+//  -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
+//  -T PrintReads \
+//  -R ${referenceMap["genomeFile"]} \
+//  -nct ${task.cpus} \
+//  -I $bam \
+//  -XL hs37d5 \
+//  -XL NC_007605 \
+//  --BQSR $recalibrationReport \
+//  -o ${idSample}.recal.bam
+//  """}
+//
 //process HaplotypeCaller { }
 //process RecalibrateVariants { }
 //
