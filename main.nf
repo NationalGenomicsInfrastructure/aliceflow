@@ -223,8 +223,6 @@ process CreateRecalibrationTable {
     file "${params.projectID}_${params.sampleID}.recal.table" into recalibrationTable
     file "${params.projectID}_${params.sampleID}.md.real.bam" into crRaBam
     file "${params.projectID}_${params.sampleID}.md.real.bai" into crRaBai
-    //file "*.md.real.bam" into rcRealignedBam
-    //file "*.md.real.bai" into rcRealignedBai
 
     script:
     """
@@ -245,29 +243,33 @@ process CreateRecalibrationTable {
     """
 }
 
-//process RecalibrateBam { 
-//    input:
-//    file realBambam), file(bai), recalibrationReport from recalibrationTable
-//    file referenceMap["genomeFile"]
-//
-//  output:
-//    set idPatient, gender, status, idSample, file("${idSample}.recal.bam"), file("${idSample}.recal.bai") into recalibratedBam
-//    set idPatient, gender, status, idSample, val("${idSample}.recal.bam"), val("${idSample}.recal.bai") into recalibratedBamTSV
-//
-//  script:
-//  """
-//  java -Xmx${task.memory.toGiga()}g \
-//  -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
-//  -T PrintReads \
-//  -R ${referenceMap["genomeFile"]} \
-//  -nct ${task.cpus} \
-//  -I $bam \
-//  -XL hs37d5 \
-//  -XL NC_007605 \
-//  --BQSR $recalibrationReport \
-//  -o ${idSample}.recal.bam
-//  """}
-//
+process RecalibrateBam { 
+    input:
+    file rcTable from recalibrationTable
+    file crRaBamFile from crRaBam
+    file crRaBaiFile from crRaBai
+    file referenceMap["genomeFile"]
+
+    output:
+    file "${params.projectID}_${params.sampleID}.recal.table" into origRcTable
+    file "${params.projectID}_${params.sampleID}.md.real.recal.bam" into recalibratedBam
+    file "${params.projectID}_${params.sampleID}.md.real.recal.bai" into recalibratedBai
+
+    script:
+    """
+    java -Xmx${task.memory.toGiga()}g \
+    -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
+    -T PrintReads \
+    -R ${referenceMap["genomeFile"]} \
+    -nct ${task.cpus} \
+    -I $crRaBamFile \
+    -XL hs37d5 \
+    -XL NC_007605 \
+    --BQSR $rcTable \
+    -o ${params.projectID}_${params.sampleID}.md.real.recal.bam
+    """
+}
+
 //process HaplotypeCaller { }
 //process RecalibrateVariants { }
 //
