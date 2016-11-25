@@ -266,10 +266,34 @@ process RecalibrateBam {
     -XL hs37d5 \
     -XL NC_007605 \
     --BQSR $rcTable \
+    -L "1:131941-141339" \
     -o ${params.projectID}_${params.sampleID}.md.real.recal.bam
     """
 }
 
-//process HaplotypeCaller { }
+process HaplotypeCaller { 
+    publishDir "HaplotypeCaller"
+    input:
+    file rcBam from recalibratedBam
+    file rcBai from recalibratedBai
+
+    output:
+    file "${params.projectID}_${params.sampleID}.raw.vcf" into rawVCF
+    file "${params.projectID}_${params.sampleID}.raw.vcf.idx" into rawVCFIdx
+    
+    script:
+    """
+    java -Xmx${task.memory.toGiga()}g \
+    -jar ${params.gatkHome}/GenomeAnalysisTK.jar \
+    -T HaplotypeCaller \
+    -R ${referenceMap["genomeFile"]} \
+    --dbsnp ${referenceMap["dbsnp"]} \
+    -I $rcBam \
+    -XL hs37d5 \
+    -XL NC_007605 \
+    -L "1:131941-141339" \
+    -o ${params.projectID}_${params.sampleID}.raw.vcf
+    """
+}
 //process RecalibrateVariants { }
 //
