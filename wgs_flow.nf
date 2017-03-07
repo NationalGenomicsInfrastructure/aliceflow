@@ -105,7 +105,8 @@ println makeLink ( R1Channel.map { x -> x.get(2)}, ".R1/" )
 println makeLink ( R2Channel.map { x -> x.get(3)}, ".R2/" )
 
 process map {
-	publishDir = resultsDir
+	
+	publishDir resultsDir, mode: 'copy'
 
 	input: 
 	file R1_dir
@@ -124,7 +125,7 @@ process map {
 
 process variant_call {
 
-	publishDir = resultsDir
+	publishDir resultsDir, mode: 'copy'
 
 	input:
 	file result_gar
