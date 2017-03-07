@@ -1,0 +1,3 @@
+lp1     fc1     lane1   /home/szilva/dev/CAW/data/tiny/tiny_normal_L001_R1.fastq.gz	/home/szilva/dev/CAW/data/tiny/tiny_normal_L001_R2.fastq.gz
+lp2     fc2     lane1   /home/szilva/dev/CAW/data/tiny/tiny_normal_L002_R1.fastq.gz	/home/szilva/dev/CAW/data/tiny/tiny_normal_L002_R2.fastq.gz
+lp2     fc2     lane2   /home/szilva/dev/CAW/data/tiny/tiny_normal_L008_R1.fastq.gz	/home/szilva/dev/CAW/data/tiny/tiny_normal_L008_R2.fastq.gz
